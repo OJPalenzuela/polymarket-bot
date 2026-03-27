@@ -37,12 +37,13 @@ class RiskManager:
         self.kill_reason: Optional[str] = None
         self.kill_ts: Optional[float] = None
 
-        # locks
+        # locks (create asyncio locks lazily when in an event loop)
         self._market_locks: Dict[str, asyncio.Lock] = {}
-        self._global_lock = asyncio.Lock()
+        self._global_lock: Optional[asyncio.Lock] = None
 
     def _get_market_lock(self, market_id: str) -> asyncio.Lock:
         if market_id not in self._market_locks:
+            # create lock lazily to avoid event loop access at import/construct time
             self._market_locks[market_id] = asyncio.Lock()
         return self._market_locks[market_id]
 
@@ -94,6 +95,10 @@ class RiskManager:
             pnl = Decimal(str(realized_pnl))
         except (InvalidOperation, TypeError):
             raise ValueError("realized_pnl must be numeric")
+
+        if self._global_lock is None:
+            # create lazily inside running event loop
+            self._global_lock = asyncio.Lock()
 
         async with self._global_lock:
             self.realized_pnl += pnl
