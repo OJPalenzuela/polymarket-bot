@@ -5,6 +5,13 @@ This PR introduces the initial MVP: project scaffold, setup, RiskManager impleme
 
 ## Files changed (summary)
 - polymarket_bot/adapters/base.py
+## Tests
+- Command: `python3 -m pytest -q` — Results: 11 passed in 0.04s — 2026-03-27T06:58:51.894916Z
+
+### How to run tests
+1. Install dependencies: `pip install -e .` (or your preferred environment setup)
+2. Run: `python -m pytest -q`
+
 - polymarket_bot/adapters/fake.py
 - polymarket_bot/client.py
 - polymarket_bot/risk/risk_manager.py
@@ -15,12 +22,6 @@ This PR introduces the initial MVP: project scaffold, setup, RiskManager impleme
 - (plus scaffold and config files)
 
 ## Tests
-- All tests passing locally: 11 passed
-
-### How to run tests
-1. Install dependencies: `pip install -e .` (or your preferred environment setup)
-2. Run: `python -m pytest -q`
-
 ## Checklist
 - [x] Paper-mode enforced via FakeAdapter and Client behavior
 - [x] .env.example included
