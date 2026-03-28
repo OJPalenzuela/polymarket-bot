@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Dict
-import time
 
 from .base import ExchangeAdapter
 
@@ -19,10 +18,9 @@ class FakeAdapter(ExchangeAdapter):
         super().__init__(paper_mode=paper_mode)
 
     async def place_limit_order(self, order: Dict) -> Dict:
-        # No network I/O. Produce deterministic ids based on timestamp and client_id if present
-        ts = int(time.time())
+        # No network I/O. Produce deterministic ids based on client_id.
         client_id = order.get("client_id") or "anon"
-        exchange_order_id = f"fake-{client_id}-{ts}"
+        exchange_order_id = f"fake-{client_id}"
 
         # Use Decimal for numeric fields, but return floats for JSON-friendly output
         price = Decimal(str(order.get("price")))

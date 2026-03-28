@@ -62,6 +62,10 @@ def load_config(override: Optional[Dict[str, object]] = None) -> Dict[str, objec
         "RISK_MAX_ORDER_SIZE": os.environ.get("RISK_MAX_ORDER_SIZE"),
         "RISK_COOLDOWN_SEC": os.environ.get("RISK_COOLDOWN_SEC"),
         "RISK_PNL_LIMIT": os.environ.get("RISK_PNL_LIMIT"),
+        "RUNTIME_TICK_SECONDS": os.environ.get("RUNTIME_TICK_SECONDS"),
+        "RUNTIME_MAX_TICKS": os.environ.get("RUNTIME_MAX_TICKS"),
+        "RUNTIME_EVENTS_PATH": os.environ.get("RUNTIME_EVENTS_PATH"),
+        "RUNTIME_MARKET_ID": os.environ.get("RUNTIME_MARKET_ID"),
         "CONFIG_FILE": os.environ.get("CONFIG_FILE"),
     }
 
