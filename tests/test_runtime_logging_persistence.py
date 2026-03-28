@@ -189,6 +189,38 @@ def test_event_chain_deny_records_rejection_and_no_adapter_execution(tmp_path):
     assert chain == ["tick_started", "strategy_decision", "order_result", "tick_completed"]
 
 
+def test_shadow_live_blocks_order_with_structured_suppression(tmp_path):
+    events_path = tmp_path / "shadow.jsonl"
+    client = create_client(
+        config={
+            "EXECUTION_MODE": "shadow_live",
+            "PAPER_MODE": False,
+            "ADAPTER_KIND": "fake",
+            "ADAPTER_API_KEY": "k",
+            "ADAPTER_API_SECRET": "s",
+            "RISK_MAX_ORDER_SIZE": "10",
+            "RISK_MAX_POSITION": "100",
+            "RISK_COOLDOWN_SEC": "0",
+        }
+    )
+    runtime = RuntimeOrchestrator(
+        client=client,
+        strategy=AlwaysIntentStrategy(),
+        event_store=JSONLEventStore(events_path),
+        tick_seconds=0.01,
+        market_id="m1",
+        clock_now=SequenceClock(),
+        run_id_factory=lambda: "run-shadow",
+    )
+
+    asyncio.run(runtime.run(max_ticks=1))
+    rows = _read_events(events_path)
+    order = next(r for r in rows if r["event_type"] == "order_result")
+    assert order["payload"]["status"] == "rejected"
+    assert order["payload"]["rejection_reason"] == "shadow_live_read_only"
+    assert order["payload"]["retry_decision"] == "no_blind_retry"
+
+
 def test_lifecycle_events_present_in_bounded_run(tmp_path):
     events_path = tmp_path / "lifecycle.jsonl"
     client = create_client(paper_mode=True)

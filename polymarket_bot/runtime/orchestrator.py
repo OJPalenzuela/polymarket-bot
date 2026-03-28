@@ -10,6 +10,11 @@ from polymarket_bot.client import Client
 from polymarket_bot.logging.events import make_event, RuntimeEvent
 from polymarket_bot.persistence import EventStore
 from polymarket_bot.runtime.clock import ClockNow, SleepFn, default_clock_now, default_sleep, utc_iso
+from polymarket_bot.runtime.policy import ExecutionMode
+from polymarket_bot.runtime.safety import (
+    FailureThresholdTracker,
+    RuntimeSafetyConfig,
+)
 from polymarket_bot.strategy import Strategy, TickContext
 
 
@@ -37,6 +42,8 @@ class RuntimeOrchestrator:
         sleep_fn: SleepFn = default_sleep,
         logger: Optional[logging.Logger] = None,
         run_id_factory: Optional[Callable[[], str]] = None,
+        execution_mode: ExecutionMode = ExecutionMode.PAPER,
+        safety_config: RuntimeSafetyConfig | None = None,
     ) -> None:
         self.client = client
         self.strategy = strategy
@@ -47,6 +54,12 @@ class RuntimeOrchestrator:
         self.sleep_fn = sleep_fn
         self.logger = logger or logging.getLogger("polymarket_bot.runtime")
         self.run_id_factory = run_id_factory or (lambda: str(uuid.uuid4()))
+        self.execution_mode = execution_mode
+        self.safety_config = safety_config or RuntimeSafetyConfig()
+        self.failure_tracker = FailureThresholdTracker(
+            mode=self.execution_mode,
+            max_consecutive_adapter_failures=self.safety_config.max_consecutive_adapter_failures,
+        )
         self._stop_requested = False
         self._stop_reason = "completed"
 
@@ -107,7 +120,12 @@ class RuntimeOrchestrator:
                 tick_id=None,
                 level="INFO",
                 component="runtime",
-                payload={"tick_seconds": self.tick_seconds, "max_ticks": max_ticks, "market_id": self.market_id},
+                payload={
+                    "tick_seconds": self.tick_seconds,
+                    "max_ticks": max_ticks,
+                    "market_id": self.market_id,
+                    "mode": self.execution_mode.value,
+                },
             )
         )
 
@@ -154,8 +172,17 @@ class RuntimeOrchestrator:
                     result_status = result.get("status", "unknown")
                     if result_status == "rejected":
                         orders_rejected += 1
+                        error_type = str(result.get("error_type") or "")
+                        if error_type.startswith("adapter_"):
+                            stop_reason = self.failure_tracker.on_adapter_failure()
+                            if stop_reason:
+                                self.request_stop(stop_reason)
                     elif result_status == "simulated":
                         orders_submitted += 1
+                        self.failure_tracker.on_success()
+                    elif result_status == "submitted":
+                        orders_submitted += 1
+                        self.failure_tracker.on_success()
 
                     await self._emit(
                         make_event(
@@ -173,6 +200,10 @@ class RuntimeOrchestrator:
                                 "price": intent.price,
                                 "size": intent.size,
                                 "rejection_reason": result.get("rejection_reason"),
+                                "error_type": result.get("error_type"),
+                                "stage": result.get("stage"),
+                                "retry_decision": result.get("retry_decision"),
+                                "retry_count": result.get("retry_count"),
                             },
                         )
                     )
@@ -180,6 +211,9 @@ class RuntimeOrchestrator:
             except Exception as exc:
                 status = "error"
                 error_stage = "strategy_or_order"
+                stop_reason = self.failure_tracker.on_adapter_failure()
+                if stop_reason:
+                    self.request_stop(stop_reason)
                 await self._emit(
                     make_event(
                         event_type="runtime_error",

@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 VALID_EVENT_TYPES = {
     "runtime_started",
+    "startup_failed",
     "tick_started",
     "strategy_decision",
     "order_result",

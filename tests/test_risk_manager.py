@@ -1,8 +1,5 @@
 import asyncio
-import time
 from decimal import Decimal
-
-import pytest
 
 from polymarket_bot.risk import RiskManager
 
