@@ -689,3 +689,33 @@ polymarket-bot/
 ---
 
 *Propuesta generada con research de Q3 2025 – Q1 2026 | Última actualización: Marzo 2026*
+
+---
+
+## PR2 Runtime (paper-mode) — quick local run
+
+Esta sección documenta el slice implementado en PR #2 (runtime + estrategia determinística + logging/persistencia JSONL), manteniendo límites de alcance.
+
+### Alcance PR2
+
+- ✅ Soportado: ejecución local en **paper mode** con loop acotado por ticks.
+- ✅ Soportado: estrategia determinística única y pipeline via `Client.place_order_async`.
+- ✅ Soportado: eventos estructurados persistidos en JSONL.
+- ❌ No soportado en PR2: modo live / integración real de exchange / expansión de CI.
+
+### Comando de ejecución
+
+```bash
+python3 -m polymarket_bot.runtime_main --paper-mode true --interval 1 --max-ticks 3 --market-id demo-market --events-path ./runtime-events.jsonl
+```
+
+### Variables de entorno runtime
+
+- `RUNTIME_TICK_SECONDS` (float > 0)
+- `RUNTIME_MAX_TICKS` (int > 0)
+- `RUNTIME_EVENTS_PATH` (path JSONL)
+- `RUNTIME_MARKET_ID` (string)
+
+### Nota de boundary
+
+Si se intenta `--paper-mode false`, el entrypoint falla rápido con error explícito indicando que live mode queda diferido a PR3.
