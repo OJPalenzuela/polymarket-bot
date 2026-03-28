@@ -719,3 +719,16 @@ python3 -m polymarket_bot.runtime_main --paper-mode true --interval 1 --max-tick
 ### Nota de boundary
 
 Si se intenta `--paper-mode false`, el entrypoint falla rápido con error explícito indicando que live mode queda diferido a PR3.
+
+## PR3 CI & Scope Boundary (Incremental Hardening)
+
+PR3 agrega baseline de calidad y hardening operativo SIN expandir a producción full.
+
+- Required gates (merge-blocking):
+  - `python -m pytest -q`
+  - `ruff check .`
+- Informational only (non-blocking in PR3):
+  - `mypy polymarket_bot`
+
+Rationale: se prioriza seguridad de ejecución + confiabilidad runtime + baseline CI con blast radius mínimo.
+Type-check estricto queda diferido a un follow-up dedicado para no mezclar deuda de tipado con hardening operativo de PR3.

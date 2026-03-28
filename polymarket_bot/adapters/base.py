@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from .errors import AdapterGuardrailError
 
 
 class ExchangeAdapter:
@@ -14,6 +14,19 @@ class ExchangeAdapter:
     def __init__(self, *, paper_mode: bool = False) -> None:
         self.paper_mode = bool(paper_mode)
 
+    @property
+    def supports_connectivity_probe(self) -> bool:
+        return False
+
+    @property
+    def supports_live_orders(self) -> bool:
+        return not self.paper_mode
+
+    async def probe_connectivity(self) -> None:
+        if self.paper_mode:
+            raise AdapterGuardrailError("connectivity probe is not available in paper_mode")
+        raise NotImplementedError("probe_connectivity must be implemented by adapter")
+
     async def place_limit_order(self, order: dict) -> dict:
         """Place a limit order on the exchange.
 
@@ -21,5 +34,5 @@ class ExchangeAdapter:
         base implementation prevents network usage by raising when paper_mode True.
         """
         if self.paper_mode:
-            raise RuntimeError("network method cannot be called in paper_mode")
+            raise AdapterGuardrailError("network method cannot be called in paper_mode")
         raise NotImplementedError("place_limit_order must be implemented by adapter")
