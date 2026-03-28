@@ -256,6 +256,11 @@ def test_runtime_main_runs_bounded_paper_mode(tmp_path, monkeypatch):
     assert rc == 0
     assert (tmp_path / "events.jsonl").exists()
 
+    rows = [json.loads(x) for x in (tmp_path / "events.jsonl").read_text().splitlines() if x.strip()]
+    runtime_started = next(r for r in rows if r.get("event_type") == "runtime_started")
+    assert runtime_started["event_type"] == "runtime_started"
+    assert runtime_started.get("payload", {}).get("mode") == "paper"
+
 
 def test_runtime_stops_on_adapter_failure_threshold_shadow_mode():
     store = InMemoryStore()

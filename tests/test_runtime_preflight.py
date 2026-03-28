@@ -20,6 +20,16 @@ class FlakyProbeAdapter(FakeAdapter):
             raise AdapterConnectivityError("probe failed")
 
 
+class AlwaysTimeoutProbeAdapter(FakeAdapter):
+    def __init__(self):
+        super().__init__(paper_mode=False)
+        self.attempts = 0
+
+    async def probe_connectivity(self) -> None:
+        self.attempts += 1
+        raise TimeoutError("forced timeout")
+
+
 class NoProbeAdapter(ExchangeAdapter):
     def __init__(self):
         super().__init__(paper_mode=False)
@@ -64,6 +74,23 @@ def test_preflight_live_requires_explicit_opt_in():
     assert result.reason_class == "preflight_opt_in"
 
 
+def test_preflight_live_rejects_missing_required_config():
+    cfg = {
+        "ADAPTER_KIND": "fake",
+        "ADAPTER_API_KEY": "k",
+        # ADAPTER_API_SECRET intentionally missing
+        "LIVE_ENABLED": True,
+    }
+    policy = build_execution_policy(ExecutionMode.LIVE)
+    adapter = FakeAdapter(paper_mode=False)
+    safety = RuntimeSafetyConfig()
+
+    result = asyncio.run(run_preflight(cfg=cfg, policy=policy, adapter=adapter, safety=safety))
+    assert result.ok is False
+    assert result.reason_class == "preflight_config"
+    assert any(x.startswith("missing_required_config:ADAPTER_API_SECRET") for x in result.checks_failed)
+
+
 def test_preflight_shadow_rejects_invalid_adapter_probe_config():
     cfg = {
         "ADAPTER_KIND": "custom",
@@ -105,6 +132,23 @@ def test_preflight_probe_retry_exhaustion_is_deterministic_failure():
     policy = build_execution_policy(ExecutionMode.LIVE)
     adapter = FlakyProbeAdapter(failures_before_success=3)
     safety = RuntimeSafetyConfig(preflight_probe_max_attempts=2)
+
+    result = asyncio.run(run_preflight(cfg=cfg, policy=policy, adapter=adapter, safety=safety))
+    assert result.ok is False
+    assert result.reason_class == "preflight_connectivity"
+    assert "connectivity_probe_attempts:2" in result.checks_failed
+
+
+def test_preflight_probe_timeout_exhaustion_is_deterministic_failure():
+    cfg = {
+        "ADAPTER_KIND": "fake",
+        "ADAPTER_API_KEY": "k",
+        "ADAPTER_API_SECRET": "s",
+        "LIVE_ENABLED": True,
+    }
+    policy = build_execution_policy(ExecutionMode.LIVE)
+    adapter = AlwaysTimeoutProbeAdapter()
+    safety = RuntimeSafetyConfig(preflight_probe_timeout_sec=0.001, preflight_probe_max_attempts=2)
 
     result = asyncio.run(run_preflight(cfg=cfg, policy=policy, adapter=adapter, safety=safety))
     assert result.ok is False
